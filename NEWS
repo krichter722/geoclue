@@ -1,3 +1,10 @@
+2.4.8
+=====
+
+- Fix threshold for detecting too old location update.
+- Explain in the configuration what the applications white-list is meant for.
+- 
+
 2.4.7
 =====
 

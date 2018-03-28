@@ -43,6 +43,7 @@ struct _GClueLocationSourcePrivate
         GClueLocation *location;
 
         guint active_counter;
+        guint time_threshold;
 
         GClueAccuracyLevel avail_accuracy_level;
 
@@ -58,6 +59,7 @@ enum
         PROP_0,
         PROP_LOCATION,
         PROP_ACTIVE,
+        PROP_TIME_THRESHOLD,
         PROP_AVAILABLE_ACCURACY_LEVEL,
         PROP_COMPUTE_MOVEMENT,
         LAST_PROP
@@ -123,6 +125,10 @@ gclue_location_source_get_property (GObject    *object,
                                      gclue_location_source_get_active (source));
                 break;
 
+        case PROP_TIME_THRESHOLD:
+                g_value_set_uint (value, source->priv->time_threshold);
+                break;
+
         case PROP_AVAILABLE_ACCURACY_LEVEL:
                 g_value_set_enum (value, source->priv->avail_accuracy_level);
                 break;
@@ -152,6 +158,10 @@ gclue_location_source_set_property (GObject      *object,
                 gclue_location_source_set_location (source, location);
                 break;
         }
+
+        case PROP_TIME_THRESHOLD:
+                source->priv->time_threshold = g_value_get_uint (value);
+                break;
 
         case PROP_AVAILABLE_ACCURACY_LEVEL:
                 source->priv->avail_accuracy_level = g_value_get_enum (value);
@@ -208,6 +218,17 @@ gclue_location_source_class_init (GClueLocationSourceClass *klass)
         g_object_class_install_property (object_class,
                                          PROP_ACTIVE,
                                          gParamSpecs[PROP_ACTIVE]);
+
+        gParamSpecs[PROP_TIME_THRESHOLD] = g_param_spec_uint ("time-threshold",
+                                                              "TimeThreshold",
+                                                              "TimeThreshold",
+                                                              0,
+                                                              G_MAXUINT,
+                                                              0,
+                                                              G_PARAM_READWRITE);
+        g_object_class_install_property (object_class,
+                                         PROP_TIME_THRESHOLD,
+                                         gParamSpecs[PROP_TIME_THRESHOLD]);
 
         gParamSpecs[PROP_AVAILABLE_ACCURACY_LEVEL] =
                 g_param_spec_enum ("available-accuracy-level",

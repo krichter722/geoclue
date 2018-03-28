@@ -43,6 +43,8 @@ struct _GClueModemInterface {
         gboolean (*get_is_3g_available)   (GClueModem         *modem);
         gboolean (*get_is_cdma_available) (GClueModem         *modem);
         gboolean (*get_is_gps_available)  (GClueModem         *modem);
+        gboolean (*get_supports_time_threshold)
+                                          (GClueModem         *modem);
         void     (*enable_3g)             (GClueModem         *modem,
                                            GCancellable       *cancellable,
                                            GAsyncReadyCallback callback,
@@ -73,6 +75,10 @@ struct _GClueModemInterface {
         gboolean (*disable_gps)           (GClueModem         *modem,
                                            GCancellable       *cancellable,
                                            GError            **error);
+        void     (*set_time_threshold)    (GClueModem         *modem,
+                                           guint               threshold,
+                                           GCancellable       *cancellable,
+                                           GError            **error);
 };
 
 gboolean     gclue_modem_get_is_3g_available   (GClueModem         *modem);
@@ -82,6 +88,7 @@ void         gclue_modem_enable_3g             (GClueModem         *modem,
                                                 GCancellable       *cancellable,
                                                 GAsyncReadyCallback callback,
                                                 gpointer            user_data);
+gboolean     gclue_get_supports_time_threshold (GClueModem         *modem);
 gboolean     gclue_modem_enable_3g_finish      (GClueModem         *modem,
                                                 GAsyncResult       *result,
                                                 GError            **error);
@@ -106,6 +113,10 @@ gboolean     gclue_modem_disable_cdma          (GClueModem         *modem,
                                                 GCancellable       *cancellable,
                                                 GError            **error);
 gboolean     gclue_modem_disable_gps           (GClueModem         *modem,
+                                                GCancellable       *cancellable,
+                                                GError            **error);
+gboolean     gclue_modem_set_time_threshold    (GClueModem         *modem,
+                                                guint               threshold,
                                                 GCancellable       *cancellable,
                                                 GError            **error);
 

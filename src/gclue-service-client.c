@@ -783,7 +783,7 @@ static void
 gclue_service_client_client_iface_init (GClueDBusClientIface *iface)
 {
         iface->handle_start = gclue_service_client_handle_start;
-        iface->handle_stop = gclue_service_client_handle_stop;
+        iface->handle_stop = gclue_sermice_client_handle_stop;
 }
 
 static gboolean

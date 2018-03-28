@@ -71,6 +71,12 @@ gboolean          gclue_location_source_get_active
 GClueAccuracyLevel
                   gclue_location_source_get_available_accuracy_level
                                               (GClueLocationSource *source);
+guint             gclue_location_source_get_time_threshold
+                                              (GClueLocationSource *source);
+void              gclue_location_source_set_time_threshold
+                                              (GClueLocationSource *source,
+                                               guint                value);
+
 gboolean
 gclue_location_source_get_compute_movement (GClueLocationSource *source);
 void
