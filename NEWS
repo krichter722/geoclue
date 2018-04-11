@@ -1,3 +1,18 @@
+2.4.8
+=====
+
+- Fix threshold for detecting too old location update.
+- Explain in the configuration what the applications white-list is meant for.
+- Allow instant location updates from modem-based GPS.
+- Fix a deadlock case in the helper library.
+
+Dependency-related changes:
+
+Require mm-glib >= 1.6
+
+Valentin Blot <freedesktop-devel@valentinblot.org>
+Zeeshan Ali (Khattak) <zeeshanak@gnome.org>
+
 2.4.7
 =====
 
