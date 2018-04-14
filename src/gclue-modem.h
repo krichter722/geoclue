@@ -47,6 +47,9 @@ struct _GClueModemInterface {
                                            GCancellable       *cancellable,
                                            GAsyncReadyCallback callback,
                                            gpointer            user_data);
+        guint     (*get_time_threshold)   (GClueModem *modem);
+        void      (*set_time_threshold)   (GClueModem *modem,
+                                           guint       threshold);
         gboolean (*enable_3g_finish)      (GClueModem         *modem,
                                            GAsyncResult       *result,
                                            GError            **error);
@@ -82,6 +85,9 @@ void         gclue_modem_enable_3g             (GClueModem         *modem,
                                                 GCancellable       *cancellable,
                                                 GAsyncReadyCallback callback,
                                                 gpointer            user_data);
+guint        gclue_modem_get_time_threshold    (GClueModem *modem);
+void         gclue_modem_set_time_threshold    (GClueModem *modem,
+                                                guint       threshold);
 gboolean     gclue_modem_enable_3g_finish      (GClueModem         *modem,
                                                 GAsyncResult       *result,
                                                 GError            **error);
