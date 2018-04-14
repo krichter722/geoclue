@@ -52,6 +52,8 @@ struct _GClueModemManagerPrivate {
         GCancellable *cancellable;
 
         MMModemLocationSource caps; /* Caps we set or are going to set */
+
+        guint time_threshold;
 };
 
 enum
@@ -60,6 +62,7 @@ enum
         PROP_IS_3G_AVAILABLE,
         PROP_IS_CDMA_AVAILABLE,
         PROP_IS_GPS_AVAILABLE,
+        PROP_TIME_THRESHOLD,
         LAST_PROP
 };
 
@@ -80,6 +83,11 @@ static gboolean
 gclue_modem_manager_get_is_cdma_available (GClueModem *modem);
 static gboolean
 gclue_modem_manager_get_is_gps_available (GClueModem *modem);
+static guint
+gclue_modem_manager_get_time_threshold (GClueModem *modem);
+static void
+gclue_modem_manager_set_time_threshold (GClueModem *modem,
+                                        guint       time_threshold);
 static void
 gclue_modem_manager_enable_3g (GClueModem         *modem,
                                GCancellable       *cancellable,
@@ -160,6 +168,30 @@ gclue_modem_manager_get_property (GObject    *object,
                                      gclue_modem_get_is_gps_available (modem));
                 break;
 
+        case PROP_TIME_THRESHOLD:
+                g_value_set_uint (value,
+                                  gclue_modem_get_time_threshold (modem));
+                break;
+
+        default:
+                G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+        }
+}
+
+static void
+gclue_modem_manager_set_property (GObject      *object,
+                                  guint         prop_id,
+                                  const GValue *value,
+                                  GParamSpec   *pspec)
+{
+        GClueModem *modem = GCLUE_MODEM (object);
+
+        switch (prop_id) {
+        case PROP_TIME_THRESHOLD:
+                gclue_modem_set_time_threshold (modem,
+                                                g_value_get_uint (value));
+                break;
+
         default:
                 G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
         }
@@ -174,6 +206,7 @@ gclue_modem_manager_class_init (GClueModemManagerClass *klass)
         GObjectClass *gmodem_class = G_OBJECT_CLASS (klass);
 
         gmodem_class->get_property = gclue_modem_manager_get_property;
+        gmodem_class->set_property = gclue_modem_manager_set_property;
         gmodem_class->finalize = gclue_modem_manager_finalize;
         gmodem_class->constructed = gclue_modem_manager_constructed;
 
@@ -197,6 +230,12 @@ gclue_modem_manager_class_init (GClueModemManagerClass *klass)
         gParamSpecs[PROP_IS_GPS_AVAILABLE] =
                         g_object_class_find_property (gmodem_class,
                                                       "is-gps-available");
+        gParamSpecs[PROP_TIME_THRESHOLD] =
+                        g_object_class_find_property (gmodem_class,
+                                                      "time-threshold");
+        g_object_class_override_property (gmodem_class,
+                                          PROP_TIME_THRESHOLD,
+                                          "time-threshold");
 
         signals[FIX_3G] = g_signal_lookup ("fix-3g", GCLUE_TYPE_MODEM);
         signals[FIX_CDMA] = g_signal_lookup ("fix-cdma", GCLUE_TYPE_MODEM);
@@ -209,6 +248,8 @@ gclue_modem_interface_init (GClueModemInterface *iface)
         iface->get_is_3g_available = gclue_modem_manager_get_is_3g_available;
         iface->get_is_cdma_available = gclue_modem_manager_get_is_cdma_available;
         iface->get_is_gps_available = gclue_modem_manager_get_is_gps_available;
+        iface->get_time_threshold = gclue_modem_manager_get_time_threshold;
+        iface->set_time_threshold = gclue_modem_manager_set_time_threshold;
         iface->enable_3g = gclue_modem_manager_enable_3g;
         iface->enable_3g_finish = gclue_modem_manager_enable_3g_finish;
         iface->enable_cdma = gclue_modem_manager_enable_cdma;
@@ -601,10 +642,10 @@ on_mm_object_added (GDBusObjectManager *object_manager,
         manager->priv->modem_location = mm_object_get_modem_location (mm_object);
 
         mm_modem_location_set_gps_refresh_rate (manager->priv->modem_location,
-                                                0,
+                                                manager->priv->time_threshold,
                                                 manager->priv->cancellable,
                                                 on_gps_refresh_rate_set,
-                                                user_data);
+                                                NULL);
 
         g_signal_connect (G_OBJECT (manager->priv->modem_location),
                           "notify::location",
@@ -788,6 +829,41 @@ gclue_modem_manager_get_is_gps_available (GClueModem *modem)
 
         return modem_has_caps (GCLUE_MODEM_MANAGER (modem),
                                MM_MODEM_LOCATION_SOURCE_GPS_NMEA);
+}
+
+static guint
+gclue_modem_manager_get_time_threshold (GClueModem *modem)
+{
+        g_return_val_if_fail (GCLUE_IS_MODEM_MANAGER (modem), 0);
+
+        return GCLUE_MODEM_MANAGER (modem)->priv->time_threshold;
+}
+
+static void
+gclue_modem_manager_set_time_threshold (GClueModem *modem,
+                                        guint       time_threshold)
+{
+        GClueModemManager *manager;
+
+        g_return_if_fail (GCLUE_IS_MODEM_MANAGER (modem));
+
+        manager = GCLUE_MODEM_MANAGER (modem);
+        manager->priv->time_threshold = time_threshold;
+
+        if (manager->priv->modem_location != NULL) {
+                mm_modem_location_set_gps_refresh_rate
+                        (manager->priv->modem_location,
+                         time_threshold,
+                         manager->priv->cancellable,
+                         on_gps_refresh_rate_set,
+                         NULL);
+        }
+
+        g_object_notify_by_pspec (G_OBJECT (manager),
+                                  gParamSpecs[PROP_TIME_THRESHOLD]);
+        g_debug ("%s: New time-threshold:  %u",
+                 G_OBJECT_TYPE_NAME (manager),
+                 time_threshold);
 }
 
 static void
