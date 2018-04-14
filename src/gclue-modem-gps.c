@@ -28,7 +28,7 @@
 
 /**
  * SECTION:gclue-modem-gps
- * @short_description: WiFi-based geolocation
+ * @short_description: GPS modem-based geolocation source
  * @include: gclue-glib/gclue-modem-gps.h
  *
  * Contains functions to get the geolocation from a GPS modem.
