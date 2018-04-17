@@ -702,7 +702,11 @@ gclue_service_client_handle_set_property (GDBusConnection *connection,
         } else if (ret && strcmp (property_name, "TimeThreshold") == 0) {
                 priv->time_threshold = gclue_dbus_client_get_time_threshold
                         (client);
-                g_debug ("New time threshold: %u", priv->time_threshold);
+                gclue_locator_set_time_threshold (priv->locator,
+                                                  priv->time_threshold);
+                g_debug ("%s: New time-threshold:  %u",
+                         G_OBJECT_TYPE_NAME (client),
+                         priv->time_threshold);
         }
 
         return ret;
