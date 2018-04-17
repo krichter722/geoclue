@@ -59,6 +59,9 @@ GType gclue_locator_get_type (void) G_GNUC_CONST;
 
 GClueLocator *      gclue_locator_new                (GClueAccuracyLevel level);
 GClueAccuracyLevel  gclue_locator_get_accuracy_level (GClueLocator *locator);
+guint               gclue_locator_get_time_threshold (GClueLocator *locator);
+void                gclue_locator_set_time_threshold (GClueLocator *locator,
+                                                      guint         threshold);
 
 G_END_DECLS
 
