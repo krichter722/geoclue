@@ -155,7 +155,9 @@ on_simple_ready (GObject      *source_object,
         g_object_ref (client);
         g_print ("Client object: %s\n",
                  g_dbus_proxy_get_object_path (G_DBUS_PROXY (client)));
-        gclue_client_set_time_threshold (client, time_threshold);
+        if (time_threshold > 0) {
+                gclue_client_set_time_threshold (client, time_threshold);
+        }
 
         print_location (simple);
 

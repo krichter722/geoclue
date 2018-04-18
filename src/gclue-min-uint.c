@@ -51,6 +51,34 @@ enum
 
 static GParamSpec *gParamSpecs[LAST_PROP];
 
+typedef struct
+{
+        GClueMinUINT *muint;
+        GObject *owner;
+} OwnerData;
+
+static gboolean
+on_owner_weak_ref_notify_defered (OwnerData *data)
+{
+        gclue_min_uint_drop_value (data->muint, data->owner);
+        g_object_unref (data->muint);
+        g_slice_free (OwnerData, data);
+
+        return FALSE;
+}
+
+static void
+on_owner_weak_ref_notify (gpointer data, GObject *object)
+{
+        OwnerData *owner_data = g_slice_new (OwnerData);
+        owner_data->muint = GCLUE_MIN_UINT (data);
+        g_object_ref (owner_data->muint);
+        owner_data->owner = object;
+
+        // Let's ensure owner is really gone before we drop its value
+        g_idle_add ((GSourceFunc) on_owner_weak_ref_notify_defered, owner_data);
+}
+
 static void
 gclue_min_uint_finalize (GObject *object)
 {
@@ -134,17 +162,17 @@ guint
 gclue_min_uint_get_value (GClueMinUINT *muint)
 {
         guint value;
-        GList *keys, *l;
+        GList *values, *l;
 
         g_return_val_if_fail (GCLUE_IS_MIN_UINT(muint), 0);
 
         if (g_hash_table_size (muint->priv->all_values) == 0)
                 return 0;
 
-        keys = g_hash_table_get_keys (muint->priv->all_values);
-        value = GPOINTER_TO_UINT (keys->data);
+        values = g_hash_table_get_values (muint->priv->all_values);
+        value = GPOINTER_TO_UINT (values->data);
 
-        for (l = keys->next; l; l = l->next) {
+        for (l = values->next; l; l = l->next) {
                 guint i = GPOINTER_TO_UINT (l->data);
 
                 if (value > i) {
@@ -159,93 +187,61 @@ gclue_min_uint_get_value (GClueMinUINT *muint)
  * gclue_min_uint_add_value
  * @muint: a #GClueMinUINT
  * @value: A value to add to the list
+ * @owner: the object adding this value
+ *
+ * If @owner has already added a value previously, this call will simply replace
+ * that. i-e Each object can only add one value at a time.
  **/
 void
 gclue_min_uint_add_value (GClueMinUINT *muint,
-                          guint         value)
+                          guint         value,
+                          GObject      *owner)
 {
-        gpointer key, hash_value;
-        guint cur_value, new_value;
-        guint num_users = 1;
+        guint new_value;
 
         g_return_if_fail (GCLUE_IS_MIN_UINT(muint));
 
-        key = GUINT_TO_POINTER (value);
-        hash_value = g_hash_table_lookup (muint->priv->all_values, key);
-        if (hash_value != NULL) {
-                num_users = GPOINTER_TO_UINT (hash_value) + 1;
-        }
-
-        cur_value = gclue_min_uint_get_value (muint);
         g_hash_table_replace (muint->priv->all_values,
-                              key,
-                              GUINT_TO_POINTER (num_users));
+                              owner,
+                              GUINT_TO_POINTER (value));
+        g_object_weak_ref (owner, on_owner_weak_ref_notify, muint);
         new_value = gclue_min_uint_get_value (muint);
+        g_debug ("%s: Added %u for %s. New minimum value: %u",
+                 G_OBJECT_TYPE_NAME (muint),
+                 value,
+                 G_OBJECT_TYPE_NAME (owner),
+                 new_value);
 
-        if (cur_value != new_value && muint->priv->notify_value) {
-                g_object_notify_by_pspec (G_OBJECT (muint),
-                                          gParamSpecs[PROP_VALUE]);
-        }
+        g_object_notify_by_pspec (G_OBJECT (muint), gParamSpecs[PROP_VALUE]);
 }
 
 /**
  * gclue_min_uint_drop_value
  * @muint: a #GClueMinUINT
- * @value: A value to drop from the list
+ * @owner: the object that adadded a value previously
  **/
 void
 gclue_min_uint_drop_value (GClueMinUINT *muint,
-                           guint         value)
+                           GObject      *owner)
 {
-        gpointer key, hash_value;
-        guint cur_value, new_value;
-        guint num_users;
+        gpointer hash_value;
+        guint new_value;
 
         g_return_if_fail (GCLUE_IS_MIN_UINT(muint));
 
-        key = GUINT_TO_POINTER (value);
-        hash_value = g_hash_table_lookup (muint->priv->all_values, key);
-        if (hash_value == NULL) {
+        if (!g_hash_table_lookup_extended (muint->priv->all_values,
+                                           owner,
+                                           NULL,
+                                           &hash_value)) {
                 return;
         }
 
-        cur_value = gclue_min_uint_get_value (muint);
-        num_users = GPOINTER_TO_UINT (hash_value) - 1;
-        if (num_users == 0) {
-                g_hash_table_remove (muint->priv->all_values, key);
-        } else {
-                g_hash_table_replace (muint->priv->all_values,
-                                      key,
-                                      GUINT_TO_POINTER (num_users));
-        }
+        g_hash_table_remove (muint->priv->all_values, owner);
         new_value = gclue_min_uint_get_value (muint);
+        g_debug ("%s: Dropped %u. New minimum value: %u",
+                 G_OBJECT_TYPE_NAME (muint),
+                 GPOINTER_TO_INT (hash_value),
+                 new_value);
 
-        if (cur_value != new_value && muint->priv->notify_value) {
-                g_object_notify_by_pspec (G_OBJECT (muint),
-                                          gParamSpecs[PROP_VALUE]);
-        }
-}
-
-/**
- * gclue_min_uint_exchange_value
- * @muint: a #GClueMinUINT
- * @to_drop: A value to drop from the list
- * @to_add: A value to add to the list
- *
- * Use this method instead of #gclue_min_uint_drop_value and
- * #gclue_min_uint_add_value to ensure #GClueMinUINT:value property is only
- * notified once.
- **/
-void
-gclue_min_uint_exchage_value (GClueMinUINT *muint,
-                              guint         to_drop,
-                              guint         to_add)
-{
-        g_return_if_fail (GCLUE_IS_MIN_UINT(muint));
-
-        muint->priv->notify_value = FALSE;
-        gclue_min_uint_drop_value (muint, to_drop);
-        muint->priv->notify_value = TRUE;
-
-        gclue_min_uint_add_value (muint, to_add);
+        g_object_notify_by_pspec (G_OBJECT (muint), gParamSpecs[PROP_VALUE]);
 }

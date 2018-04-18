@@ -57,12 +57,10 @@ GType             gclue_min_uint_get_type       (void) G_GNUC_CONST;
 GClueMinUINT *    gclue_min_uint_new            (void);
 guint             gclue_min_uint_get_value      (GClueMinUINT    *muint);
 void              gclue_min_uint_add_value      (GClueMinUINT    *muint,
-                                                 guint            value);
+                                                 guint            value,
+                                                 GObject         *owner);
 void              gclue_min_uint_drop_value     (GClueMinUINT    *muint,
-                                                 guint            value);
-void              gclue_min_uint_exchage_value (GClueMinUINT *muint,
-                                                guint         to_drop,
-                                                guint         to_add);
+                                                 GObject         *owner);
 G_END_DECLS
 
 #endif /* GCLUE_MIN_UINT_H */

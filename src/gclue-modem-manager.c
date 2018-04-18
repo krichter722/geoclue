@@ -230,12 +230,12 @@ gclue_modem_manager_class_init (GClueModemManagerClass *klass)
         gParamSpecs[PROP_IS_GPS_AVAILABLE] =
                         g_object_class_find_property (gmodem_class,
                                                       "is-gps-available");
-        gParamSpecs[PROP_TIME_THRESHOLD] =
-                        g_object_class_find_property (gmodem_class,
-                                                      "time-threshold");
         g_object_class_override_property (gmodem_class,
                                           PROP_TIME_THRESHOLD,
                                           "time-threshold");
+        gParamSpecs[PROP_TIME_THRESHOLD] =
+                        g_object_class_find_property (gmodem_class,
+                                                      "time-threshold");
 
         signals[FIX_3G] = g_signal_lookup ("fix-3g", GCLUE_TYPE_MODEM);
         signals[FIX_CDMA] = g_signal_lookup ("fix-cdma", GCLUE_TYPE_MODEM);
@@ -320,7 +320,7 @@ on_get_3gpp_ready (GObject      *source_object,
         cell_id = mm_location_3gpp_get_cell_id (location_3gpp);
 
         if (is_location_3gpp_same (manager, mcc, mnc, lac, cell_id)) {
-                g_debug ("New 3GPP location is same as last one");
+                //g_debug ("New 3GPP location is same as last one");
                 return;
         }
         g_clear_object (&priv->location_3gpp);
@@ -409,13 +409,13 @@ on_get_gps_nmea_ready (GObject      *source_object,
         }
 
         if (is_location_gga_same (manager, gga)) {
-                g_debug ("New GGA trace is same as last one: %s", gga);
+                //g_debug ("New GGA trace is same as last one: %s", gga);
                 return;
         }
         g_clear_object (&priv->location_nmea);
         priv->location_nmea = location_nmea;
 
-        g_debug ("New GPGGA trace: %s", gga);
+        //g_debug ("New GPGGA trace: %s", gga);
         g_signal_emit (manager, signals[FIX_GPS], 0, gga);
 }
 
@@ -641,11 +641,15 @@ on_mm_object_added (GDBusObjectManager *object_manager,
         manager->priv->modem = mm_modem;
         manager->priv->modem_location = mm_object_get_modem_location (mm_object);
 
-        mm_modem_location_set_gps_refresh_rate (manager->priv->modem_location,
-                                                manager->priv->time_threshold,
-                                                manager->priv->cancellable,
-                                                on_gps_refresh_rate_set,
-                                                NULL);
+        g_debug ("Setting GPS refresh rate to %u on Modem '%s'",
+                 manager->priv->time_threshold,
+                 mm_object_get_path (mm_object));
+        mm_modem_location_set_gps_refresh_rate
+                (manager->priv->modem_location,
+                 manager->priv->time_threshold,
+                 manager->priv->cancellable,
+                 on_gps_refresh_rate_set,
+                 NULL);
 
         g_signal_connect (G_OBJECT (manager->priv->modem_location),
                           "notify::location",
@@ -762,6 +766,7 @@ gclue_modem_manager_constructed (GObject *object)
                    priv->cancellable,
                    on_bus_get_ready,
                    object);
+
 }
 
 static void
