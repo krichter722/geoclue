@@ -1,7 +1,7 @@
 /* vim: set et ts=8 sw=8: */
 /* gclue-min-uint.c
  *
- * Copyright (C) 2018 Collabora Ltd.
+ * Copyright 2018 Collabora Ltd.
  *
  * Geoclue is free software; you can redistribute it and/or modify it under
  * the terms of the GNU General Public License as published by the Free
