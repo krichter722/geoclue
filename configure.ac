@@ -164,9 +164,9 @@ AM_CONDITIONAL([BUILD_BACKEND], [test "x$build_backend" = "xyes"])
 # Demo agent
 AC_ARG_ENABLE(demo-agent,
               AS_HELP_STRING([--enable-demo-agent=yes|no],
-                             [Build demo agent (default=no)]),
+                             [Build demo agent (default=yes)]),
               [enable_demo_agent=$enableval],
-              [enable_demo_agent=no])
+              [enable_demo_agent=yes])
 if test "x$enable_demo_agent" = "xyes"; then
     PKG_CHECK_MODULES(DEMO_AGENT, [
                       glib-2.0 >= $GLIB_MIN_VERSION
