@@ -459,19 +459,19 @@ gclue_service_client_handle_start (GClueDBusClient       *client,
                                       GCLUE_ACCURACY_LEVEL_COUNTRY,
                                       GCLUE_ACCURACY_LEVEL_EXACT);
 
-        /* No agent == No authorization needed */
-        if (priv->agent_proxy == NULL ||
-            gclue_config_is_system_component (config, desktop_id) ||
-            app_perm == GCLUE_APP_PERM_ALLOWED) {
-                complete_start (data);
-
+        /* No agent == No authorization */
+        if (priv->agent_proxy == NULL) {
+                g_dbus_method_invocation_return_error (invocation,
+                                                       G_DBUS_ERROR,
+                                                       G_DBUS_ERROR_ACCESS_DENIED,
+                                                       "'%s' disallowed, no agent "
+                                                       "for UID %u",
+                                                       desktop_id,
+                                                       uid);
                 return TRUE;
         }
 
-        if (priv->agent_proxy != NULL)
-                max_accuracy = gclue_agent_get_max_accuracy_level (priv->agent_proxy);
-        else
-                max_accuracy = GCLUE_ACCURACY_LEVEL_EXACT;
+        max_accuracy = gclue_agent_get_max_accuracy_level (priv->agent_proxy);
 
         if (max_accuracy == 0) {
                 g_dbus_method_invocation_return_error (invocation,
@@ -487,6 +487,13 @@ gclue_service_client_handle_start (GClueDBusClient       *client,
                  "Max accuracy level allowed by agent: %u",
                  data->accuracy_level, max_accuracy);
         data->accuracy_level = CLAMP (data->accuracy_level, 0, max_accuracy);
+
+        if (gclue_config_is_system_component (config, desktop_id) ||
+            app_perm == GCLUE_APP_PERM_ALLOWED) {
+                complete_start (data);
+
+                return TRUE;
+        }
 
         gclue_agent_call_authorize_app (priv->agent_proxy,
                                         desktop_id,
