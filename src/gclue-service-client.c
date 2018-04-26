@@ -474,6 +474,7 @@ gclue_service_client_handle_start (GClueDBusClient       *client,
         max_accuracy = gclue_agent_get_max_accuracy_level (priv->agent_proxy);
 
         if (max_accuracy == 0) {
+                // Agent disabled geolocation for the user
                 g_dbus_method_invocation_return_error (invocation,
                                                        G_DBUS_ERROR,
                                                        G_DBUS_ERROR_ACCESS_DENIED,
