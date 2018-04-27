@@ -22,6 +22,9 @@ apps_DATA = geoclue-where-am-i.desktop
 
 if BUILD_DEMO_AGENT
 apps_DATA += geoclue-demo-agent.desktop
+
+autostartdir = $(sysconfdir)/xdg/autostart
+autostart_DATA = geoclue-demo-agent.desktop
 endif
 
 @INTLTOOL_DESKTOP_RULE@
