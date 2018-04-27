@@ -18,8 +18,11 @@ where_am_i_LDADD = $(GEOCLUE_LIBS)			\
 		   ../libgeoclue/libgeoclue-2.la
 
 appsdir = $(datadir)/applications
-apps_DATA = geoclue-where-am-i.desktop \
-	    geoclue-demo-agent.desktop
+apps_DATA = geoclue-where-am-i.desktop
+
+if BUILD_DEMO_AGENT
+apps_DATA += geoclue-demo-agent.desktop
+endif
 
 @INTLTOOL_DESKTOP_RULE@
 
