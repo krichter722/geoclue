@@ -29,6 +29,7 @@
 #include "gclue-config.h"
 
 #define DEFAULT_ACCURACY_LEVEL GCLUE_ACCURACY_LEVEL_CITY
+#define DEFAULT_AGENT_STARTUP_WAIT_SECS 5
 
 static void
 gclue_service_client_client_iface_init (GClueDBusClientIface *iface);
@@ -43,12 +44,16 @@ G_DEFINE_TYPE_WITH_CODE (GClueServiceClient,
                          G_IMPLEMENT_INTERFACE (G_TYPE_INITABLE,
                                                 gclue_service_client_initable_iface_init));
 
+typedef struct _StartData StartData;
+
 struct _GClueServiceClientPrivate
 {
         GClueClientInfo *client_info;
         const char *path;
         GDBusConnection *connection;
         GClueAgent *agent_proxy;
+        StartData *pending_auth_start_data;
+        guint pending_auth_timeout_id;
 
         GClueServiceLocation *location;
         GClueServiceLocation *prev_location;
@@ -328,13 +333,13 @@ on_agent_props_changed (GDBusProxy *agent_proxy,
         g_variant_iter_free (iter);
 }
 
-typedef struct
+struct _StartData
 {
         GClueServiceClient *client;
         GDBusMethodInvocation *invocation;
         char *desktop_id;
         GClueAccuracyLevel accuracy_level;
-} StartData;
+};
 
 static void
 start_data_free (StartData *data)
@@ -449,6 +454,56 @@ handle_post_agent_check_auth (StartData *data)
 }
 
 static gboolean
+handle_pending_auth (gpointer user_data)
+{
+        GClueServiceClientPrivate *priv = GCLUE_SERVICE_CLIENT (user_data)->priv;
+        StartData *data = priv->pending_auth_start_data;
+        guint32 uid;
+
+        uid = gclue_client_info_get_user_id (priv->client_info);
+        if (priv->agent_proxy == NULL) {
+                g_dbus_method_invocation_return_error (data->invocation,
+                                                       G_DBUS_ERROR,
+                                                       G_DBUS_ERROR_ACCESS_DENIED,
+                                                       "'%s' disallowed, no agent "
+                                                       "for UID %u",
+                                                       data->desktop_id,
+                                                       uid);
+                start_data_free (data);
+        } else {
+                handle_post_agent_check_auth (data);
+        }
+
+        priv->pending_auth_timeout_id = 0;
+        priv->pending_auth_start_data = NULL;
+
+        return G_SOURCE_REMOVE;
+}
+
+static void
+set_pending_auth_timeout_enable (GClueDBusClient *client)
+{
+        GClueServiceClientPrivate *priv = GCLUE_SERVICE_CLIENT (client)->priv;
+
+        if (priv->pending_auth_timeout_id > 0)
+                return;
+        priv->pending_auth_timeout_id = g_timeout_add_seconds
+                (DEFAULT_AGENT_STARTUP_WAIT_SECS, handle_pending_auth, client);
+}
+
+static void
+set_pending_auth_timeout_disable (GClueDBusClient *client)
+{
+        GClueServiceClientPrivate *priv = GCLUE_SERVICE_CLIENT (client)->priv;
+
+        if (priv->pending_auth_timeout_id == 0)
+                return;
+
+        g_source_remove (priv->pending_auth_timeout_id);
+        priv->pending_auth_timeout_id = 0;
+}
+
+static gboolean
 gclue_service_client_handle_start (GClueDBusClient       *client,
                                    GDBusMethodInvocation *invocation)
 {
@@ -527,13 +582,17 @@ gclue_service_client_handle_start (GClueDBusClient       *client,
 
         /* No agent == No authorization */
         if (priv->agent_proxy == NULL) {
-                g_dbus_method_invocation_return_error (invocation,
-                                                       G_DBUS_ERROR,
-                                                       G_DBUS_ERROR_ACCESS_DENIED,
-                                                       "'%s' disallowed, no agent "
-                                                       "for UID %u",
-                                                       desktop_id,
-                                                       uid);
+                /* Already a pending Start()? Denied! */
+                if (priv->pending_auth_start_data) {
+                        g_dbus_method_invocation_return_error_literal
+                                (invocation,
+                                 G_DBUS_ERROR,
+                                 G_DBUS_ERROR_ACCESS_DENIED,
+                                 "An authorization request is already pending");
+                } else {
+                        priv->pending_auth_start_data = data;
+                        set_pending_auth_timeout_enable (client);
+                }
                 return TRUE;
         }
 
@@ -560,6 +619,8 @@ gclue_service_client_finalize (GObject *object)
 
         g_clear_pointer (&priv->path, g_free);
         g_clear_object (&priv->connection);
+        set_pending_auth_timeout_disable (GCLUE_DBUS_CLIENT (object));
+        g_clear_pointer (&priv->pending_auth_start_data, start_data_free);
         if (priv->agent_proxy != NULL)
                 g_signal_handlers_disconnect_by_func
                                 (priv->agent_proxy,
@@ -633,6 +694,7 @@ gclue_service_client_set_property (GObject      *object,
                                           "g-properties-changed",
                                           G_CALLBACK (on_agent_props_changed),
                                           object);
+                handle_pending_auth (client);
                 break;
 
         default:
