@@ -5,4 +5,4 @@ Description=Location Lookup Service
 Type=dbus
 BusName=org.freedesktop.GeoClue2
 User=@dbus_srv_user@
-ExecStart=@libexecdir@/geoclue -t 5
+ExecStart=@libexecdir@/geoclue
