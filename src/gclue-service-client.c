@@ -401,6 +401,53 @@ error_out:
         start_data_free (data);
 }
 
+static void
+handle_post_agent_check_auth (StartData *data)
+{
+        GClueServiceClientPrivate *priv = GCLUE_SERVICE_CLIENT (data->client)->priv;
+        GClueAccuracyLevel max_accuracy;
+        GClueConfig *config;
+        GClueAppPerm app_perm;
+        guint32 uid;
+
+        uid = gclue_client_info_get_user_id (priv->client_info);
+        max_accuracy = gclue_agent_get_max_accuracy_level (priv->agent_proxy);
+
+        if (max_accuracy == 0) {
+                // Agent disabled geolocation for the user
+                g_dbus_method_invocation_return_error (data->invocation,
+                                                       G_DBUS_ERROR,
+                                                       G_DBUS_ERROR_ACCESS_DENIED,
+                                                       "Geolocation disabled for"
+                                                       " UID %u",
+                                                       uid);
+                start_data_free (data);
+                return;
+        }
+        g_debug ("requested accuracy level: %u. "
+                 "Max accuracy level allowed by agent: %u",
+                 data->accuracy_level, max_accuracy);
+        data->accuracy_level = CLAMP (data->accuracy_level, 0, max_accuracy);
+
+        config = gclue_config_get_singleton ();
+        app_perm = gclue_config_get_app_perm (config,
+                                              data->desktop_id,
+                                              priv->client_info);
+
+        if (gclue_config_is_system_component (config, data->desktop_id) ||
+            app_perm == GCLUE_APP_PERM_ALLOWED) {
+                complete_start (data);
+                return;
+        }
+
+        gclue_agent_call_authorize_app (priv->agent_proxy,
+                                        data->desktop_id,
+                                        data->accuracy_level,
+                                        NULL,
+                                        on_authorize_app_ready,
+                                        data);
+}
+
 static gboolean
 gclue_service_client_handle_start (GClueDBusClient       *client,
                                    GDBusMethodInvocation *invocation)
@@ -409,7 +456,6 @@ gclue_service_client_handle_start (GClueDBusClient       *client,
         GClueConfig *config;
         StartData *data;
         const char *desktop_id;
-        GClueAccuracyLevel max_accuracy;
         GClueAppPerm app_perm;
         guint32 uid;
 
@@ -471,37 +517,7 @@ gclue_service_client_handle_start (GClueDBusClient       *client,
                 return TRUE;
         }
 
-        max_accuracy = gclue_agent_get_max_accuracy_level (priv->agent_proxy);
-
-        if (max_accuracy == 0) {
-                // Agent disabled geolocation for the user
-                g_dbus_method_invocation_return_error (invocation,
-                                                       G_DBUS_ERROR,
-                                                       G_DBUS_ERROR_ACCESS_DENIED,
-                                                       "Geolocation disabled for"
-                                                       " UID %u",
-                                                       uid);
-                start_data_free (data);
-                return TRUE;
-        }
-        g_debug ("requested accuracy level: %u. "
-                 "Max accuracy level allowed by agent: %u",
-                 data->accuracy_level, max_accuracy);
-        data->accuracy_level = CLAMP (data->accuracy_level, 0, max_accuracy);
-
-        if (gclue_config_is_system_component (config, desktop_id) ||
-            app_perm == GCLUE_APP_PERM_ALLOWED) {
-                complete_start (data);
-
-                return TRUE;
-        }
-
-        gclue_agent_call_authorize_app (priv->agent_proxy,
-                                        desktop_id,
-                                        data->accuracy_level,
-                                        NULL,
-                                        on_authorize_app_ready,
-                                        data);
+        handle_post_agent_check_auth (data);
 
         return TRUE;
 }
