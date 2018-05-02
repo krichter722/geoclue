@@ -486,6 +486,17 @@ gclue_service_client_handle_start (GClueDBusClient       *client,
                                                                        "'DesktopId' property must be set");
                         return TRUE;
                 }
+        } else {
+                const char *property;
+
+                property = gclue_dbus_client_get_desktop_id (client);
+                if (property != NULL && g_strcmp0 (property, desktop_id) != 0) {
+                        g_dbus_method_invocation_return_error_literal (invocation,
+                                                                       G_DBUS_ERROR,
+                                                                       G_DBUS_ERROR_ACCESS_DENIED,
+                                                                       "'DesktopId' property does not match Flatpak information");
+                        return TRUE;
+                }
         }
 
         config = gclue_config_get_singleton ();
