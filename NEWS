@@ -1,3 +1,27 @@
+2.4.9
+=====
+
+- Modem GPS refresh rate is now based on the location refresh rate of apps.
+- Refuse location access if no app-auth agent is registered. This fixes a
+  security hole where an app requests location access before the agent gets to
+  register itself and we end up giving out locaiton access even though user has
+  disabled it.
+- Port desktop ID detection to Flatpak >= 0.6.10.
+- The default timeout on the service binary is now the same as the service
+  itself: 5 seconds.
+- Demo applications:
+  - where-am-i now allows setting location refresh-rate.
+  - Only install demo agent's desktop file if it's enabled.
+  - Build and install demo agent unless disabled explicitly.
+  - Autostart the demo agent by default on non-GNOME platforms, since an agent
+    is required now and no one other than GNOME yet provides one (sigh).
+
+Dependency-related changes:
+
+Bastien Nocera <hadess@hadess.net>
+Mathieu Bridon <bochecha@daitauha.fr>
+Zeeshan Ali <zeenix@collabora.co.uk>
+
 2.4.8
 =====
 
