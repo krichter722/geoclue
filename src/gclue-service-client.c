@@ -450,7 +450,7 @@ gclue_service_client_handle_start (GClueDBusClient       *client,
         }
 
         data = g_slice_new (StartData);
-        data->client = g_object_ref (client);
+        data->client = g_object_ref (GCLUE_SERVICE_CLIENT (client));
         data->invocation =  g_object_ref (invocation);
         data->desktop_id =  g_strdup (desktop_id);
 
