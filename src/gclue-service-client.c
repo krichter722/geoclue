@@ -460,6 +460,8 @@ handle_pending_auth (gpointer user_data)
         StartData *data = priv->pending_auth_start_data;
         guint32 uid;
 
+        g_return_val_if_fail (data != NULL, G_SOURCE_REMOVE);
+
         uid = gclue_client_info_get_user_id (priv->client_info);
         if (priv->agent_proxy == NULL) {
                 g_dbus_method_invocation_return_error (data->invocation,
@@ -698,7 +700,8 @@ gclue_service_client_set_property (GObject      *object,
                                           "g-properties-changed",
                                           G_CALLBACK (on_agent_props_changed),
                                           object);
-                handle_pending_auth (client);
+                if (client->priv->pending_auth_start_data != NULL)
+                        handle_pending_auth (client);
                 break;
 
         default:
