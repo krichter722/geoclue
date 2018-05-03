@@ -524,40 +524,16 @@ gclue_service_client_handle_start (GClueDBusClient       *client,
         }
 
         desktop_id = gclue_client_info_get_xdg_id (priv->client_info);
-        if (desktop_id == NULL) {
-                g_dbus_method_invocation_return_error_literal
-                        (invocation,
-                         G_DBUS_ERROR,
-                         G_DBUS_ERROR_ACCESS_DENIED,
-                         "Failed to read Flatpak application information");
-                return TRUE;
-        }
-
-        if (*desktop_id == '\0') {
-                /* Non-flatpak app */
+        if (desktop_id == NULL)
+                /* Non-xdg app */
                 desktop_id = gclue_dbus_client_get_desktop_id (client);
 
-                if (desktop_id == NULL) {
-                        g_dbus_method_invocation_return_error_literal
-                                (invocation,
-                                 G_DBUS_ERROR,
-                                 G_DBUS_ERROR_ACCESS_DENIED,
-                                 "'DesktopId' property must be set");
-                        return TRUE;
-                }
-        } else {
-                const char *property;
-
-                property = gclue_dbus_client_get_desktop_id (client);
-                if (property != NULL && g_strcmp0 (property, desktop_id) != 0) {
-                        g_dbus_method_invocation_return_error_literal
-                                (invocation,
-                                 G_DBUS_ERROR,
-                                 G_DBUS_ERROR_ACCESS_DENIED,
-                                 "'DesktopId' property does not match Flatpak "
-                                 " information");
-                        return TRUE;
-                }
+        if (desktop_id == NULL) {
+                g_dbus_method_invocation_return_error_literal (invocation,
+                                                               G_DBUS_ERROR,
+                                                               G_DBUS_ERROR_ACCESS_DENIED,
+                                                               "'DesktopId' property must be set");
+                return TRUE;
         }
 
         config = gclue_config_get_singleton ();

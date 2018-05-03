@@ -21,10 +21,6 @@
  */
 
 #include <glib/gi18n.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <errno.h>
 
 #include "gclue-client-info.h"
 
@@ -185,85 +181,52 @@ on_name_vanished (GDBusConnection *connection,
                        0);
 }
 
-/* Based on xdp_get_app_id_from_pid() from xdg-desktop-portal
- * Returns NULL on failure, keyfile with name "" if not sandboxed, and full app-info otherwise */
-static GKeyFile *
-parse_app_info_from_fileinfo (int pid)
-{
-  g_autofree char *root_path = NULL;
-  g_autofree char *path = NULL;
-  g_autofree char *content = NULL;
-  g_autofree char *app_id = NULL;
-  int root_fd = -1;
-  int info_fd = -1;
-  struct stat stat_buf;
-  g_autoptr(GError) local_error = NULL;
-  g_autoptr(GMappedFile) mapped = NULL;
-  g_autoptr(GKeyFile) metadata = NULL;
-
-  root_path = g_strdup_printf ("/proc/%u/root", pid);
-  root_fd = openat (AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
-  if (root_fd == -1)
-    {
-      /* Not able to open the root dir shouldn't happen. Probably the app died and
-         we're failing due to /proc/$pid not existing. In that case fail instead
-         of treating this as privileged. */
-      return NULL;
-    }
-
-  metadata = g_key_file_new ();
-
-  info_fd = openat (root_fd, ".flatpak-info", O_RDONLY | O_CLOEXEC | O_NOCTTY);
-  close (root_fd);
-  if (info_fd == -1)
-    {
-      if (errno == ENOENT)
-        {
-          /* No file => on the host */
-          g_key_file_set_string (metadata, "Application", "name", "");
-          return g_steal_pointer (&metadata);
-        }
-
-      /* Some weird error => failure */
-      return NULL;
-    }
-
-  if (fstat (info_fd, &stat_buf) != 0 || !S_ISREG (stat_buf.st_mode))
-    {
-      /* Some weird fd => failure */
-      close (info_fd);
-      return NULL;
-    }
-
-  mapped = g_mapped_file_new_from_fd  (info_fd, FALSE, &local_error);
-  if (mapped == NULL)
-    {
-      close (info_fd);
-      return NULL;
-    }
-
-  if (!g_key_file_load_from_data (metadata,
-                                  g_mapped_file_get_contents (mapped),
-                                  g_mapped_file_get_length (mapped),
-                                  G_KEY_FILE_NONE, &local_error))
-    {
-      close (info_fd);
-      return NULL;
-    }
-
-  return g_steal_pointer (&metadata);
-}
-
+/* Based on got_credentials_cb() from xdg-app source code */
 static char *
 get_xdg_id (guint32 pid)
 {
-  g_autoptr(GKeyFile) app_info = NULL;
+        char *xdg_id = NULL;
+        g_autofree char *path = NULL;
+        g_autofree char *content = NULL;
+        gchar **lines;
+        int i;
 
-  app_info = parse_app_info_from_fileinfo (pid);
-  if (app_info == NULL)
-    return NULL;
+        path = g_strdup_printf ("/proc/%u/cgroup", pid);
 
-  return g_key_file_get_string (app_info, "Application", "name", NULL);
+        if (!g_file_get_contents (path, &content, NULL, NULL))
+                return NULL;
+        lines =  g_strsplit (content, "\n", -1);
+
+        for (i = 0; lines[i] != NULL; i++) {
+                const char *unit = lines[i] + strlen ("1:name=systemd:");
+                g_autofree char *scope = NULL;
+                const char *name;
+                char *dash;
+
+                if (!g_str_has_prefix (lines[i], "1:name=systemd:"))
+                        continue;
+
+                scope = g_path_get_basename (unit);
+                if ((!g_str_has_prefix (scope, "xdg-app-") &&
+                     !g_str_has_prefix (scope, "flatpak-")) ||
+                    !g_str_has_suffix (scope, ".scope"))
+                        break;
+
+                /* strlen("flatpak-") == strlen("xdg-app-")
+                 * so all is good here */
+                name = scope + strlen("xdg-app-");
+                dash = strchr (name, '-');
+
+                if (dash == NULL)
+                        break;
+
+                *dash = 0;
+                xdg_id = g_strdup (name);
+        }
+
+        g_strfreev (lines);
+
+        return xdg_id;
 }
 
 static void
@@ -474,8 +437,6 @@ gclue_client_info_check_bus_name (GClueClientInfo *info,
         return (strcmp (bus_name, info->priv->bus_name) == 0);
 }
 
-/* Like parse_app_info_from_fileinfo(), returns NULL on failure,
- * "" (an empty string) if not sandboxed, and a desktop ID otherwise */
 const char *
 gclue_client_info_get_xdg_id (GClueClientInfo *info)
 {
