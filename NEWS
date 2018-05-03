@@ -1,3 +1,18 @@
+2.4.10
+======
+
+- Fix issues introduced by last release 2.4.9:
+  - a crash on startup.
+  - Revert the new desktop ID detection code as that turned out to not work for
+    non-root user that geoclue is supposed to be run as.
+- Use systemd's service file to lockdown the geoclue daemon to stop eventual
+  security problems.
+
+Contributors:
+
+Bastien Nocera <hadess@hadess.net>
+Zeeshan Ali <zeenix@collabora.co.uk>
+
 2.4.9
 =====
 
