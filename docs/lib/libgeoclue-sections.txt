@@ -64,6 +64,8 @@ gclue_client_proxy_new_sync
 gclue_client_proxy_new_for_bus
 gclue_client_proxy_new_for_bus_finish
 gclue_client_proxy_new_for_bus_sync
+gclue_client_get_time_threshold
+gclue_client_set_time_threshold
 <SUBSECTION Standard>
 GCLUE_CLIENT_PROXY
 GCLUE_CLIENT_PROXY_CLASS
